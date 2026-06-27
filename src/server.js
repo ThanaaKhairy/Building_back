@@ -22,30 +22,6 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // ============================================
-// ✅ الاتصال بقاعدة البيانات
-// ============================================
-
-// ✅ دالة لتشغيل السيرفر
-const startServer = async () => {
-  try {
-    // ✅ الاتصال بقاعدة البيانات
-    await connectDB();
-    
-    // ✅ إنشاء السوبر أدمن
-    await seedAdmin();
-    
-    // ✅ بدء المهام المجدولة (في البيئة العادية فقط)
-    if (process.env.NODE_ENV !== 'production') {
-      startStockChecker();
-    }
-    
-    console.log('✅ Server initialized successfully');
-  } catch (error) {
-    console.error('❌ Failed to initialize server:', error.message);
-  }
-};
-
-// ============================================
 // ✅ Middleware
 // ============================================
 
@@ -79,14 +55,24 @@ app.get('/', (req, res) => {
 });
 
 // ✅ Health check
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    status: 'OK',
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString(),
-    memory: process.memoryUsage()
-  });
+app.get('/health', async (req, res) => {
+  try {
+    await connectDB();
+    res.status(200).json({
+      success: true,
+      status: 'OK',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      database: 'connected',
+      memory: process.memoryUsage()
+    });
+  } catch (error) {
+    res.status(503).json({
+      success: false,
+      status: 'Database connection failed',
+      error: error.message
+    });
+  }
 });
 
 // ✅ Routes المحمية
@@ -116,34 +102,37 @@ app.post('/api/admin/check-stock', protect, adminOnly, async (req, res) => {
 app.use(errorHandler);
 
 // ============================================
-// ✅ تشغيل السيرفر
+// ✅ الاتصال بقاعدة البيانات
 // ============================================
 
-// ✅ للتشغيل المحلي فقط
+let isInitialized = false;
+
+const initialize = async () => {
+  if (isInitialized) return;
+  
+  try {
+    await connectDB();
+    await seedAdmin();
+    isInitialized = true;
+    console.log('✅ Server initialized successfully');
+  } catch (error) {
+    console.error('❌ Failed to initialize server:', error.message);
+  }
+};
+
+// ✅ للتشغيل المحلي
 if (require.main === module) {
-  // ✅ في البيئة المحلية، شغل السيرفر فوراً
-  startServer().then(() => {
+  initialize().then(() => {
     app.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
       console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`📱 SMS Service: ${process.env.TWILIO_ACCOUNT_SID ? '✅ Enabled' : '❌ Disabled'}`);
     });
   });
 }
 
-// ✅ للـ Vercel - تصدير التطبيق مع بدء التشغيل
-let initialized = false;
-
-const init = async () => {
-  if (!initialized) {
-    await connectDB();
-    await seedAdmin();
-    initialized = true;
-  }
-};
-
+// ✅ للـ Vercel - تأكد من التهيئة قبل أي طلب
 app.use(async (req, res, next) => {
-  await init();
+  await initialize();
   next();
 });
 
