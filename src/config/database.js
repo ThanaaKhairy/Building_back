@@ -1,31 +1,40 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
+
+let cached = global.mongoose;
+
+if (!cached) {
+  cached = global.mongoose = {
+    conn: null,
+    promise: null,
+  };
+}
 
 const connectDB = async () => {
-  try {
-    // ✅ تأكد من وجود MONGODB_URI
-    if (!process.env.MONGODB_URI) {
-      console.warn('⚠️ MONGODB_URI is not defined. Skipping database connection.');
-      return null;
-    }
+  if (cached.conn) {
+    return cached.conn;
+  }
 
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+  if (!process.env.MONGODB_URI) {
+    throw new Error("MONGODB_URI is not defined");
+  }
+
+  if (!cached.promise) {
+    cached.promise = mongoose.connect(process.env.MONGODB_URI, {
       dbName: "Building_db",
-      // ✅ خيارات إضافية للاستقرار
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
     });
-    
-    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
-    console.log(`📁 Database: ${conn.connection.name}`);
-    return conn;
-  } catch (error) {
-    console.error(`❌ MongoDB Connection Error: ${error.message}`);
-    
-    // ✅ في Vercel، مش نوقف السيرفر (لأنه Serverless)
-    if (process.env.NODE_ENV !== 'production') {
-      process.exit(1);
-    }
-    return null;
+  }
+
+  try {
+    cached.conn = await cached.promise;
+
+    console.log("✅ MongoDB Connected");
+
+    return cached.conn;
+  } catch (err) {
+    cached.promise = null;
+    throw err;
   }
 };
 
