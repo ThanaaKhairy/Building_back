@@ -132,10 +132,20 @@ if (require.main === module) {
 }
 
 // ✅ للـ Vercel - تصدير التطبيق مع بدء التشغيل
-if (process.env.NODE_ENV === 'production') {
-  // ✅ في Vercel، ابدأ التشغيل فوراً (Serverless)
-  startServer();
-}
+let initialized = false;
+
+const init = async () => {
+  if (!initialized) {
+    await connectDB();
+    await seedAdmin();
+    initialized = true;
+  }
+};
+
+app.use(async (req, res, next) => {
+  await init();
+  next();
+});
 
 // ✅ تصدير التطبيق لـ Vercel
 module.exports = app;
