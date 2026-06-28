@@ -65,21 +65,19 @@ exports.addProduct = async (req, res) => {
 // @route   GET /api/products
 exports.getAllProducts = async (req, res) => {
   try {
-    // دعم الـ Pagination والبحث
+    console.log('📦 Fetching all products...');
+    
     const { page = 1, limit = 50, search, category, lowStock } = req.query;
     const query = { isActive: true };
 
-    // البحث
     if (search) {
       query.name = { $regex: search, $options: 'i' };
     }
 
-    // فلترة حسب التصنيف
     if (category) {
       query.category = category;
     }
 
-    // فلترة المنتجات المنخفضة
     if (lowStock === 'true') {
       query.$expr = { $lte: ['$quantity', '$minStockWarning'] };
     }
@@ -91,6 +89,8 @@ exports.getAllProducts = async (req, res) => {
 
     const total = await Product.countDocuments(query);
 
+    console.log(`✅ Found ${products.length} products`);
+    
     res.status(200).json({
       success: true,
       count: products.length,
@@ -100,9 +100,10 @@ exports.getAllProducts = async (req, res) => {
       data: products
     });
   } catch (error) {
+    console.error('❌ Error fetching products:', error.message);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'فشل في جلب المنتجات: ' + error.message
     });
   }
 };

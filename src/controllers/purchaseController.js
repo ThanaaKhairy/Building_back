@@ -108,6 +108,8 @@ exports.addPurchase = async (req, res) => {
 
 exports.getAllPurchases = async (req, res) => {
   try {
+    console.log('🛒 Fetching all purchases...');
+    
     const {
       page = 1,
       limit = 20,
@@ -158,6 +160,8 @@ exports.getAllPurchases = async (req, res) => {
       },
     ]);
 
+    console.log(`✅ Found ${purchases.length} purchases`);
+    
     res.status(200).json({
       success: true,
       currentPage: Number(page),
@@ -167,9 +171,10 @@ exports.getAllPurchases = async (req, res) => {
       data: purchases,
     });
   } catch (err) {
+    console.error('❌ Error fetching purchases:', err.message);
     res.status(500).json({
       success: false,
-      message: err.message,
+      message: 'فشل في جلب المشتريات: ' + err.message
     });
   }
 };

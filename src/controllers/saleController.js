@@ -224,6 +224,8 @@ exports.addSale = async (req, res) => {
 
 exports.getAllSales = async (req, res) => {
   try {
+    console.log('💰 Fetching all sales...');
+    
     const {
       page = 1,
       limit = 20,
@@ -273,6 +275,8 @@ exports.getAllSales = async (req, res) => {
       },
     ]);
 
+    console.log(`✅ Found ${sales.length} sales`);
+    
     res.status(200).json({
       success: true,
       currentPage: Number(page),
@@ -286,11 +290,11 @@ exports.getAllSales = async (req, res) => {
       },
       data: sales,
     });
-
-  } catch (err) {
+  } catch (error) {
+    console.error('❌ Error fetching sales:', error.message);
     res.status(500).json({
       success: false,
-      message: err.message,
+      message: 'فشل في جلب المبيعات: ' + error.message
     });
   }
 };
