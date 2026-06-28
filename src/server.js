@@ -21,25 +21,28 @@ const { protect, adminOnly } = require('./middleware/auth');
 const app = express();
 
 // ============================================
-// ✅ الاتصال بقاعدة البيانات (مرة واحدة)
+// ✅ الاتصال بقاعدة البيانات
 // ============================================
 
 let isConnected = false;
+let adminSeeded = false;
 
 const initDB = async () => {
   if (isConnected) return;
   try {
     await connectDB();
-    await seedAdmin();
+    if (!adminSeeded) {
+      await seedAdmin();
+      adminSeeded = true;
+    }
     isConnected = true;
     console.log('✅ Database initialized');
   } catch (error) {
+    isConnected = false;
     console.error('❌ Database init failed:', error.message);
+    throw error;
   }
 };
-
-// ✅ ابدأ الاتصال فوراً
-initDB();
 
 // ============================================
 // ✅ Middleware
@@ -48,6 +51,21 @@ initDB();
 app.use(corsMiddleware);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// ✅ ضمان اتصال DB قبل كل request (ضروري على Vercel serverless)
+app.use(async (req, res, next) => {
+  try {
+    await initDB();
+    next();
+  } catch (error) {
+    console.error('❌ DB Connection Error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Database connection failed',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
 
 // ============================================
 // ✅ Routes
@@ -100,8 +118,12 @@ module.exports = app;
 if (require.main === module) {
   const PORT = process.env.PORT || 5000;
   initDB().then(() => {
+    startStockChecker();
     app.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
     });
+  }).catch(err => {
+    console.error('❌ Failed to start server:', err.message);
+    process.exit(1);
   });
 }
